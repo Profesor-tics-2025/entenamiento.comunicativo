@@ -1,7 +1,7 @@
 # PRD — Entrenamiento Comunicativo
 
 **Dominio**: comunicacion.cibermedida.es  
-**Última actualización**: 2025-02  
+**Última actualización**: 2026-02  
 
 ---
 
@@ -27,13 +27,15 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 
 ---
 
-## Implementado (MVP) ✅
+## Implementado (MVP + Iteración 2) ✅
 
 ### Demo funcional
 - [x] Registro e inicio de sesión con JWT + bcrypt
 - [x] 40 ejercicios en 7 categorías sembrados en MongoDB
 - [x] Dashboard con nivel, XP, sesiones recientes, ejercicio recomendado
 - [x] Sala de entrenamiento con cámara, canvas overlay, grabación audio, métricas en vivo
+- [x] MediaPipe WASM real vía CDN (FaceLandmarker, gaze, blink, rigidez facial)
+- [x] AudioAnalyzer: AnalyserNode conectado sin enrutar al destino (sin feedback de audio)
 - [x] Transcripción con Whisper (Emergent key)
 - [x] Informe 8 bloques con Claude claude-4-sonnet-20250514
 - [x] 10 niveles progresivos con evaluación de umbrales
@@ -43,6 +45,7 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 - [x] Perfil de usuario (nombre, email, perfil profesional)
 - [x] Memoria de usuario (muletillas, contacto visual, latencia)
 - [x] Navegación completa con Navbar
+- [x] **BUG FIX**: Interceptor 401 de api.js/api.ts corregido — solo redirige si hay token (sesión expirada), no durante login fallido
 
 ### Archivos de producción Node.js/MariaDB
 - [x] database/schema.sql (9 tablas con InnoDB, utf8mb4)
@@ -57,6 +60,25 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 - [x] ecosystem.config.cjs (PM2 con cron)
 - [x] .env.example
 - [x] README.md (guía completa de despliegue)
+
+### Frontend de producción Vite/React/TypeScript (/app/client/)
+- [x] package.json, tsconfig.json, vite.config.ts configurados
+- [x] PWA con vite-plugin-pwa: manifest.webmanifest + service worker (22 entradas precacheadas)
+- [x] App.tsx con lazy loading y code splitting
+- [x] Navbar.tsx, AuthContext.tsx, api.ts (con interceptor 401 corregido)
+- [x] audioAnalyzer.ts: AnalyserNode sin enrutar al destino (sin feedback)
+- [x] visionMetrics.ts: VisionTracker class + funciones matemáticas (EAR, gaze, rigidez)
+- [x] types/index.ts: interfaces TypeScript estrictas
+- [x] **7 páginas TypeScript completas**:
+  - Train.tsx — MediaPipe real + AudioAnalyzer integrado + grabación
+  - Dashboard.tsx — stats, sesiones recientes, ejercicio recomendado
+  - Report.tsx — informe 8 bloques + Recharts
+  - Progress.tsx — 5 gráficos + línea de niveles
+  - Exercises.tsx — grid con filtros de categoría y dificultad
+  - Landing.tsx — hero + modal auth (register/login)
+  - Profile.tsx — formulario de perfil profesional
+- [x] Build Vite: ✅ compila sin errores (6.75s, TypeScript strict mode)
+- [x] TypeScript sin errores (`tsc --noEmit` limpio)
 
 ---
 
@@ -74,18 +96,16 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 - [ ] Configurar MariaDB en VPS y ejecutar schema.sql + seed.sql
 - [ ] Configurar certificado SSL con certbot
 - [ ] Inicializar PM2 con ecosystem.config.cjs
-- [ ] Crear client/package.json y tsconfig.json para compilación Vite
+- [ ] Generar iconos PWA (icon-192.png, icon-512.png) para /app/client/public/
 
-### P1 - Alta prioridad (próximas sesiones)
-- [ ] Implementar MediaPipe real en client/src/lib/visionMetrics.ts (ya tiene lógica completa)
+### P1 - Alta prioridad
 - [ ] Limitar CORS a dominio de producción (actualmente *)
-- [ ] Rate limiting en auth endpoints
+- [ ] Rate limiting en auth endpoints (brute force protection)
 - [ ] Panel de administración para gestión de ejercicios
 - [ ] Teleprompter con auto-scroll en tiempo real
-- [ ] Exportar informes como PDF
 
 ### P2 - Media prioridad
-- [ ] PWA manifest y service worker para uso offline
+- [ ] Exportar informes como PDF
 - [ ] Notificaciones de progreso por email
 - [ ] Modo práctica sin grabación (vista previa de ejercicio)
 - [ ] Historial completo de sesiones con filtros por fecha

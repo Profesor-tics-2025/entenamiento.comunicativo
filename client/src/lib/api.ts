@@ -14,7 +14,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
-    if (err.response?.status === 401) {
+    // Only redirect to '/' on 401 if a token exists (session expired).
+    // During login/register, there's no token yet — let the error propagate to setError().
+    if (err.response?.status === 401 && localStorage.getItem('auth_token')) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
       window.location.href = '/';
