@@ -1,53 +1,65 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import Navbar from './components/Navbar';
+import Landing from './pages/Landing';
+import Dashboard from './pages/Dashboard';
+import Train from './pages/Train';
+import Report from './pages/Report';
+import Progress from './pages/Progress';
+import Exercises from './pages/Exercises';
+import Profile from './pages/Profile';
+import './App.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
+function AppLayout({ children }) {
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
+    <div className="min-h-screen bg-[#0A0E1A]">
+      <Navbar />
+      {children}
     </div>
   );
-};
+}
 
 function App() {
   return (
-    <div className="App">
+    <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<Landing />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <AppLayout><Dashboard /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/train" element={
+            <ProtectedRoute>
+              <Train />
+            </ProtectedRoute>
+          } />
+          <Route path="/report/:sessionId" element={
+            <ProtectedRoute>
+              <AppLayout><Report /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/progress" element={
+            <ProtectedRoute>
+              <AppLayout><Progress /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/exercises" element={
+            <ProtectedRoute>
+              <AppLayout><Exercises /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <AppLayout><Profile /></AppLayout>
+            </ProtectedRoute>
+          } />
         </Routes>
       </BrowserRouter>
-    </div>
+    </AuthProvider>
   );
 }
 
