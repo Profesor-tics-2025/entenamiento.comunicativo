@@ -14,12 +14,15 @@ const router = Router();
 const upload = multer({ dest: os.tmpdir(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 router.post('/start', requireAuth, async (req: AuthRequest, res) => {
-  const { exerciseId, level } = req.body;
+  // Acepta tanto snake_case (cliente prod) como camelCase (legacy)
+  const exercise_id = req.body.exercise_id ?? req.body.exerciseId;
+  const level = req.body.level;
   const [result] = await pool.query(
     'INSERT INTO sessions (user_id, level, exercise_id) VALUES (?, ?, ?)',
-    [req.userId, level, exerciseId]
+    [req.userId, level, exercise_id]
   ) as any;
-  res.json({ sessionId: (result as any).insertId });
+  // Responde en snake_case (consistente con el cliente y la demo)
+  res.json({ session_id: (result as any).insertId });
 });
 
 router.post('/transcribe', requireAuth, upload.single('audio'), async (req: AuthRequest, res) => {
@@ -50,7 +53,12 @@ router.post('/transcribe', requireAuth, upload.single('audio'), async (req: Auth
 });
 
 router.post('/analyze', requireAuth, async (req: AuthRequest, res) => {
-  const { sessionId, visionData, audioMetrics, transcript, durationSeconds } = req.body;
+  // Acepta tanto snake_case como camelCase para compatibilidad
+  const sessionId    = req.body.session_id    ?? req.body.sessionId;
+  const visionData   = req.body.vision_data   ?? req.body.visionData;
+  const audioMetrics = req.body.audio_metrics ?? req.body.audioMetrics;
+  const transcript       = req.body.transcript;
+  const durationSeconds  = req.body.duration_seconds ?? req.body.durationSeconds;
 
   const [sessionRows] = await pool.query('SELECT * FROM sessions WHERE id = ? AND user_id = ?', [sessionId, req.userId]) as any;
   const session = (sessionRows as any[])[0];
@@ -135,7 +143,7 @@ router.post('/analyze', requireAuth, async (req: AuthRequest, res) => {
     }
   }
 
-  res.json({ sessionId, passed: evalResult.passed, xpEarned: evalResult.xp, report, metrics });
+  res.json({ session_id: sessionId, passed: evalResult.passed, xp_earned: evalResult.xp, report, metrics });
 });
 
 router.get('/:sessionId/report', requireAuth, async (req: AuthRequest, res) => {

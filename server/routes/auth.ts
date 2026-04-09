@@ -34,7 +34,7 @@ router.post('/register', async (req, res) => {
 
   const userId = (result as any).insertId;
   const token = createToken(userId, email.toLowerCase());
-  res.json({ token, user: { id: userId, email: email.toLowerCase(), name: name.trim(), current_level: 1, total_xp: 0, job_profile: 'general' } });
+  res.json({ token, user: { id: userId, email: email.toLowerCase(), name: name.trim(), role: 'user', current_level: 1, total_xp: 0, job_profile: 'general' } });
 });
 
 router.post('/login', async (req, res) => {
@@ -53,8 +53,11 @@ router.get('/me', async (req, res) => {
   const auth = req.headers.authorization || '';
   if (!auth.startsWith('Bearer ')) { res.status(401).json({ error: 'No autenticado' }); return; }
   try {
-    const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET!) as any;
-    const [rows] = await pool.query('SELECT id, email, name, current_level, total_xp, job_profile FROM users WHERE id = ?', [payload.sub]) as any;
+    const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET!) as { sub: number };
+    const [rows] = await pool.query(
+      'SELECT id, email, name, role, current_level, total_xp, job_profile FROM users WHERE id = ?',
+      [payload.sub]
+    ) as any;
     const user = (rows as any[])[0];
     if (!user) { res.status(404).json({ error: 'Usuario no encontrado' }); return; }
     res.json(user);

@@ -31,41 +31,26 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 ## Implementado ✅
 
 ### Demo funcional (FastAPI + MongoDB)
-- [x] Auth: registro + login con JWT + bcrypt
-- [x] 40 ejercicios en 7 categorías sembrados en MongoDB
-- [x] Dashboard con nivel, XP, sesiones recientes
-- [x] Sala de entrenamiento con MediaPipe WASM real via CDN
-- [x] AudioAnalyzer: AnalyserNode sin feedback de audio
-- [x] Transcripción con Whisper (Emergent key)
-- [x] Informe 8 bloques generado por Claude Sonnet
-- [x] 10 niveles progresivos + sistema XP
-- [x] Explorador de ejercicios con filtros
-- [x] Página de progreso con 5 gráficos Recharts
-- [x] Perfil de usuario
-- [x] Memoria de usuario (muletillas, contacto visual, latencia)
-- [x] **CORS**: configurable via `CORS_ORIGINS` env var (actualmente `*` en demo)
-- [x] **Rate limiting**: `slowapi` — 10/min en `/api/auth/login`, 5/min en `/api/auth/register`
-- [x] **`_real_ip`**: lee `X-Forwarded-For` para funcionar correctamente detrás de Apache/nginx
-- [x] **Bug fix**: interceptor 401 correcto (no redirige durante login fallido)
+- [x] Auth + rate limiting + CORS configurable por env
+- [x] `_real_ip()` — lee X-Forwarded-For (listo para Apache)
+- [x] seedAdmin idempotente en startup
+- [x] `role` en todas las respuestas de auth
 
-### Frontend de producción Vite/React/TypeScript (/app/client/)
-- [x] 7 páginas TypeScript con strict mode
-- [x] AudioAnalyzer integrado en Train.tsx (sin feedback)
-- [x] PWA configurada (manifest + service worker)
-- [x] Build Vite exitoso (6.75s, sin errores TS)
-- [x] **CORS**: restringido a `FRONTEND_URL` (sin fallback `*`)
-- [x] **Rate limiting**: express-rate-limit — 10/15min en login + register, 200/15min en API general
-- [x] `skipSuccessfulRequests: true` (no penaliza logins exitosos)
-- [x] Mensaje de error en español: "Demasiados intentos de acceso..."
+### Frontend de producción (/app/client/)
+- [x] 7 páginas TypeScript + AudioAnalyzer + PWA
+- [x] Build Vite exitoso, TypeScript sin errores
 
-### Archivos de producción Node.js/MariaDB
-- [x] database/schema.sql (9 tablas con InnoDB, utf8mb4)
-- [x] database/seed.sql (40 ejercicios + 16 muletillas)
-- [x] server/ (backend completo compilable con `tsc`)
-- [x] server/.env.example (todas las variables necesarias)
-- [x] ecosystem.config.cjs (PM2)
-- [x] **deploy/DEPLOYMENT_GUIDE.md** (guía completa paso a paso)
-- [x] deploy/apache-vhost.conf
+### Archivos de producción Node.js/MariaDB — AUDITADOS Y CORREGIDOS
+- [x] `server/package.json` + `server/tsconfig.json` — CREADOS (faltaban)
+- [x] `server/server.ts` — `app.set('trust proxy', 1)` añadido (rate limiting real)
+- [x] `server/routes/sessions.ts` — camelCase/snake_case corregido (session_id, xp_earned)
+- [x] `server/routes/auth.ts` — `role` en /auth/me, login y register
+- [x] `server/services/seedAdmin.ts` — idempotente, sin endpoint público
+- [x] `database/schema.sql` — columna `role` en users
+- [x] `database/seed.sql` — INSERT IGNORE (idempotente)
+- [x] `ecosystem.config.cjs` — dist/server.js + env_file (corregido)
+- [x] `deploy/apache-vhost.conf` — ruta correcta + proxy trailing slash + mod_remoteip + HSTS + Permissions-Policy
+- [x] `deploy/DEPLOYMENT_GUIDE.md` — guía completa auditada (15 secciones, 10 puntos de fallo documentados)
 
 ---
 

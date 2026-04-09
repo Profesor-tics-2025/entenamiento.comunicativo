@@ -13,6 +13,11 @@ import { seedAdmin } from './services/seedAdmin.js';
 
 const app = express();
 
+// ── Trust proxy (Apache/nginx) ─────────────────────────────────────────────────
+// OBLIGATORIO: sin esto, express-rate-limit ve 127.0.0.1 para TODOS los clientes
+// y o bien no hace nada o bien bloquea a todos a la vez.
+app.set('trust proxy', 1);
+
 // ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
 

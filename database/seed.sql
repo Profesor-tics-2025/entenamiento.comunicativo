@@ -23,7 +23,7 @@ INSERT IGNORE INTO filler_words (word, source, suggested_alternative) VALUES
 ('osea', 'seed', 'es decir, en otras palabras');
 
 -- ── Lectura Controlada (7 exercises) ─────────────────────────
-INSERT INTO exercise_prompts (category, level_required, title_es, description_es, duration_target_seconds, prompt_text_es, difficulty) VALUES
+INSERT IGNORE INTO exercise_prompts (category, level_required, title_es, description_es, duration_target_seconds, prompt_text_es, difficulty) VALUES
 ('Lectura Controlada', 1, 'Lectura neutra 1 minuto',
  'Lee el texto en voz alta de forma neutra y clara durante 1 minuto. Mantén un ritmo constante y pronunciación precisa.',
  60,
