@@ -12,28 +12,57 @@ import pool from './db.js';
 
 const app = express();
 
+// ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
-app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));
+
+// CORS — restringido al dominio frontend de producción
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins.length ? allowedOrigins : false,
+    credentials: true,
+  })
+);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
-app.use('/api/', limiter);
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// General API: 200 req / 15 min por IP
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes. Inténtalo de nuevo en unos minutos.' },
+});
+app.use('/api/', apiLimiter);
 
-// Auth stricter limit
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
-app.use('/api/auth/', authLimiter);
+// Login/register: 10 intentos / 15 min por IP (brute force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Demasiados intentos de acceso. Espera 15 minutos antes de intentarlo de nuevo.' },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
-// Routes
+// ── Routes ─────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/exercises', exercisesRouter);
 app.use('/api/progress', progressRouter);
 app.use('/api/users', usersRouter);
 
-// Health endpoint
-app.get('/api/health', async (req, res) => {
+// ── Health ─────────────────────────────────────────────────────────────────────
+app.get('/api/health', async (_req, res) => {
   let dbStatus = 'connected';
   try {
     const conn = await pool.getConnection();
@@ -47,7 +76,7 @@ app.get('/api/health', async (req, res) => {
 
 const PORT = parseInt(process.env.PORT || '3002');
 app.listen(PORT, () => {
-  console.log(`[server] listening on port ${PORT}`);
+  console.log(`[server] Puerto ${PORT} | CORS: ${allowedOrigins.join(', ') || 'DISABLED'}`);
 });
 
 export default app;

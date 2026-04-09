@@ -1,7 +1,7 @@
 # PRD — Entrenamiento Comunicativo
 
 **Dominio**: comunicacion.cibermedida.es  
-**Última actualización**: 2026-02  
+**Última actualización**: 2026-02
 
 ---
 
@@ -24,97 +24,73 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 - **Base de datos**: MariaDB con raw SQL (mysql2)
 - **PM2**: ecosystem.config.cjs
 - **Apache**: deploy/apache-vhost.conf + Let's Encrypt
+- **Guía de despliegue**: `/app/deploy/DEPLOYMENT_GUIDE.md`
 
 ---
 
-## Implementado (MVP + Iteración 2) ✅
+## Implementado ✅
 
-### Demo funcional
-- [x] Registro e inicio de sesión con JWT + bcrypt
+### Demo funcional (FastAPI + MongoDB)
+- [x] Auth: registro + login con JWT + bcrypt
 - [x] 40 ejercicios en 7 categorías sembrados en MongoDB
-- [x] Dashboard con nivel, XP, sesiones recientes, ejercicio recomendado
-- [x] Sala de entrenamiento con cámara, canvas overlay, grabación audio, métricas en vivo
-- [x] MediaPipe WASM real vía CDN (FaceLandmarker, gaze, blink, rigidez facial)
-- [x] AudioAnalyzer: AnalyserNode conectado sin enrutar al destino (sin feedback de audio)
+- [x] Dashboard con nivel, XP, sesiones recientes
+- [x] Sala de entrenamiento con MediaPipe WASM real via CDN
+- [x] AudioAnalyzer: AnalyserNode sin feedback de audio
 - [x] Transcripción con Whisper (Emergent key)
-- [x] Informe 8 bloques con Claude claude-4-sonnet-20250514
-- [x] 10 niveles progresivos con evaluación de umbrales
-- [x] Sistema XP con recompensas por nivel
-- [x] Explorador de ejercicios con filtros (categoría + dificultad)
+- [x] Informe 8 bloques generado por Claude Sonnet
+- [x] 10 niveles progresivos + sistema XP
+- [x] Explorador de ejercicios con filtros
 - [x] Página de progreso con 5 gráficos Recharts
-- [x] Perfil de usuario (nombre, email, perfil profesional)
+- [x] Perfil de usuario
 - [x] Memoria de usuario (muletillas, contacto visual, latencia)
-- [x] Navegación completa con Navbar
-- [x] **BUG FIX**: Interceptor 401 de api.js/api.ts corregido — solo redirige si hay token (sesión expirada), no durante login fallido
+- [x] **CORS**: configurable via `CORS_ORIGINS` env var (actualmente `*` en demo)
+- [x] **Rate limiting**: `slowapi` — 10/min en `/api/auth/login`, 5/min en `/api/auth/register`
+- [x] **`_real_ip`**: lee `X-Forwarded-For` para funcionar correctamente detrás de Apache/nginx
+- [x] **Bug fix**: interceptor 401 correcto (no redirige durante login fallido)
+
+### Frontend de producción Vite/React/TypeScript (/app/client/)
+- [x] 7 páginas TypeScript con strict mode
+- [x] AudioAnalyzer integrado en Train.tsx (sin feedback)
+- [x] PWA configurada (manifest + service worker)
+- [x] Build Vite exitoso (6.75s, sin errores TS)
+- [x] **CORS**: restringido a `FRONTEND_URL` (sin fallback `*`)
+- [x] **Rate limiting**: express-rate-limit — 10/15min en login + register, 200/15min en API general
+- [x] `skipSuccessfulRequests: true` (no penaliza logins exitosos)
+- [x] Mensaje de error en español: "Demasiados intentos de acceso..."
 
 ### Archivos de producción Node.js/MariaDB
 - [x] database/schema.sql (9 tablas con InnoDB, utf8mb4)
 - [x] database/seed.sql (40 ejercicios + 16 muletillas)
-- [x] server/db.ts (pool MySQL2, socket Unix o TCP)
-- [x] server/server.ts (Express con helmet, CORS, rate-limit)
-- [x] server/routes/ (auth, sessions, exercises, progress, users)
-- [x] server/services/ (whisper, claude, nlp, metrics)
-- [x] server/middleware/auth.ts (JWT)
-- [x] learning/ (5 módulos: nightlyCron, updateThresholds, detectNewFillers, generateExercises, updateUserMemory)
-- [x] deploy/apache-vhost.conf (HTTPS + proxy)
-- [x] ecosystem.config.cjs (PM2 con cron)
-- [x] .env.example
-- [x] README.md (guía completa de despliegue)
-
-### Frontend de producción Vite/React/TypeScript (/app/client/)
-- [x] package.json, tsconfig.json, vite.config.ts configurados
-- [x] PWA con vite-plugin-pwa: manifest.webmanifest + service worker (22 entradas precacheadas)
-- [x] App.tsx con lazy loading y code splitting
-- [x] Navbar.tsx, AuthContext.tsx, api.ts (con interceptor 401 corregido)
-- [x] audioAnalyzer.ts: AnalyserNode sin enrutar al destino (sin feedback)
-- [x] visionMetrics.ts: VisionTracker class + funciones matemáticas (EAR, gaze, rigidez)
-- [x] types/index.ts: interfaces TypeScript estrictas
-- [x] **7 páginas TypeScript completas**:
-  - Train.tsx — MediaPipe real + AudioAnalyzer integrado + grabación
-  - Dashboard.tsx — stats, sesiones recientes, ejercicio recomendado
-  - Report.tsx — informe 8 bloques + Recharts
-  - Progress.tsx — 5 gráficos + línea de niveles
-  - Exercises.tsx — grid con filtros de categoría y dificultad
-  - Landing.tsx — hero + modal auth (register/login)
-  - Profile.tsx — formulario de perfil profesional
-- [x] Build Vite: ✅ compila sin errores (6.75s, TypeScript strict mode)
-- [x] TypeScript sin errores (`tsc --noEmit` limpio)
-
----
-
-## Usuarios objetivo
-
-- Profesionales que buscan mejorar comunicación ejecutiva
-- Personas que preparan entrevistas laborales
-- Equipos de ventas y presentaciones
+- [x] server/ (backend completo compilable con `tsc`)
+- [x] server/.env.example (todas las variables necesarias)
+- [x] ecosystem.config.cjs (PM2)
+- [x] **deploy/DEPLOYMENT_GUIDE.md** (guía completa paso a paso)
+- [x] deploy/apache-vhost.conf
 
 ---
 
 ## Backlog priorizado
 
-### P0 - Crítico para producción
-- [ ] Configurar MariaDB en VPS y ejecutar schema.sql + seed.sql
-- [ ] Configurar certificado SSL con certbot
-- [ ] Inicializar PM2 con ecosystem.config.cjs
-- [ ] Generar iconos PWA (icon-192.png, icon-512.png) para /app/client/public/
+### P0 — Despliegue real en VPS
+- [ ] Seguir `deploy/DEPLOYMENT_GUIDE.md` en el servidor
+- [ ] Configurar MariaDB + crear usuario + ejecutar schema.sql + seed.sql
+- [ ] Configurar `.env` de producción con JWT_SECRET + EMERGENT_LLM_KEY
+- [ ] Build Node.js + Build Vite + PM2 + Apache + Certbot SSL
+- [ ] Generar iconos PWA (`icon-192.png`, `icon-512.png`) en `/app/client/public/`
 
-### P1 - Alta prioridad
-- [ ] Limitar CORS a dominio de producción (actualmente *)
-- [ ] Rate limiting en auth endpoints (brute force protection)
+### P1 — Mejoras post-despliegue
 - [ ] Panel de administración para gestión de ejercicios
-- [ ] Teleprompter con auto-scroll en tiempo real
+- [ ] Teleprompter con auto-scroll en sala de entrenamiento
 
-### P2 - Media prioridad
+### P2 — Backlog largo plazo
 - [ ] Exportar informes como PDF
-- [ ] Notificaciones de progreso por email
-- [ ] Modo práctica sin grabación (vista previa de ejercicio)
 - [ ] Historial completo de sesiones con filtros por fecha
-- [ ] Comparación entre sesiones en la página de informe
+- [ ] Modo práctica sin grabación
+- [ ] Notificaciones de progreso por email
 - [ ] Ranking opcional entre usuarios
 
 ---
 
-## Credenciales de prueba
-
+## Credenciales de prueba (demo)
 Ver `/app/memory/test_credentials.md`
 - test@cibermedida.es / Test2024!

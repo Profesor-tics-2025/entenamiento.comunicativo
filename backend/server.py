@@ -18,6 +18,9 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, ConfigDict
 from bson import ObjectId
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from emergentintegrations.llm.openai import OpenAISpeechToText
@@ -25,6 +28,15 @@ from emergentintegrations.llm.openai import OpenAISpeechToText
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def _real_ip(request: Request) -> str:
+    """Lee la IP real respetando X-Forwarded-For (Apache/nginx reverse proxy)."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return get_remote_address(request)
+
+limiter = Limiter(key_func=_real_ip)
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 MONGO_URL = os.environ["MONGO_URL"]
@@ -210,9 +222,17 @@ FORMATO DE SALIDA: responde ÚNICAMENTE con JSON válido, sin texto adicional, s
 app = FastAPI(title="Entrenamiento Comunicativo API")
 api_router = APIRouter(prefix="/api")
 
+# Rate limiter state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS — restringido al dominio de producción vía variable de entorno
+_raw_origins = os.environ.get("CORS_ORIGINS", "*")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",")] if _raw_origins != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -245,7 +265,8 @@ class ProfileUpdate(BaseModel):
 
 # ── Auth routes ───────────────────────────────────────────────────────────────────
 @api_router.post("/auth/register")
-async def register(body: RegisterBody):
+@limiter.limit("5/minute")
+async def register(request: Request, body: RegisterBody):
     email = body.email.lower().strip()
     if not email or not body.password or not body.name.strip():
         raise HTTPException(400, "Todos los campos son obligatorios")
@@ -275,7 +296,8 @@ async def register(body: RegisterBody):
     }
 
 @api_router.post("/auth/login")
-async def login(body: LoginBody):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginBody):
     email = body.email.lower().strip()
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(body.password, user["password_hash"]):
