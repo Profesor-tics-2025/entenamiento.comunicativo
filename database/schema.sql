@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   name VARCHAR(150) NOT NULL,
+  role ENUM('user','admin') NOT NULL DEFAULT 'user',
   current_level TINYINT UNSIGNED DEFAULT 1,
   total_xp INT UNSIGNED DEFAULT 0,
   job_profile ENUM('general','commercial','technical') DEFAULT 'general',

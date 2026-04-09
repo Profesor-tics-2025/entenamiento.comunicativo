@@ -83,6 +83,7 @@ async def get_current_user(request: Request):
             "id": str(user["_id"]),
             "email": user["email"],
             "name": user["name"],
+            "role": user.get("role", "user"),
             "current_level": user.get("current_level", 1),
             "total_xp": user.get("total_xp", 0),
             "job_profile": user.get("job_profile", "general"),
@@ -292,6 +293,7 @@ async def register(request: Request, body: RegisterBody):
     return {
         "token": token,
         "user": {"id": uid, "email": email, "name": user_doc["name"],
+                 "role": "user",
                  "current_level": 1, "total_xp": 0, "job_profile": "general"},
     }
 
@@ -307,6 +309,7 @@ async def login(request: Request, body: LoginBody):
     return {
         "token": token,
         "user": {"id": uid, "email": email, "name": user["name"],
+                 "role": user.get("role", "user"),
                  "current_level": user.get("current_level", 1),
                  "total_xp": user.get("total_xp", 0),
                  "job_profile": user.get("job_profile", "general")},
@@ -688,6 +691,7 @@ async def get_user_me(current_user=Depends(get_current_user)):
         "id": str(user["_id"]),
         "email": user["email"],
         "name": user["name"],
+        "role": user.get("role", "user"),
         "current_level": user.get("current_level", 1),
         "total_xp": user.get("total_xp", 0),
         "job_profile": user.get("job_profile", "general"),
@@ -887,6 +891,56 @@ async def seed_database():
         logger.info(f"Seeded {len(FILLERS_SEED)} filler words")
 
     await db.users.create_index("email", unique=True, background=True)
+
+    # ── Primer arranque seguro: admin inicial ────────────────────────────────────
+    # Se ejecuta en startup. Sin endpoint. Idempotente.
+    await _seed_admin()
+
+
+async def _seed_admin() -> None:
+    """
+    Crea el usuario administrador si las variables de entorno están definidas
+    y el email no existe todavía en la base de datos.
+    No hace nada si alguna variable falta o el admin ya existe.
+    """
+    email    = (os.environ.get("ADMIN_EMAIL") or "").strip().lower()
+    password = (os.environ.get("ADMIN_PASSWORD") or "").strip()
+    name     = (os.environ.get("ADMIN_NAME") or "").strip()
+
+    # Validar que las tres variables estén presentes
+    missing = [k for k, v in [("ADMIN_EMAIL", email), ("ADMIN_PASSWORD", password), ("ADMIN_NAME", name)] if not v]
+    if missing:
+        logger.info(f"[seedAdmin] Variables ausentes ({', '.join(missing)}). No se crea ningún admin.")
+        return
+
+    # Validar formato básico de email
+    import re as _re
+    if not _re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email):
+        logger.warning(f"[seedAdmin] ADMIN_EMAIL '{email}' no tiene formato válido. Abortando.")
+        return
+
+    # Comprobar si ya existe
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        logger.info(f"[seedAdmin] Admin ya existente ({email}). Sin cambios.")
+        return
+
+    # Crear admin con contraseña hasheada y role='admin'
+    now = datetime.now(timezone.utc).isoformat()
+    user_doc = {
+        "_id": ObjectId(),
+        "email": email,
+        "password_hash": hash_password(password),
+        "name": name,
+        "role": "admin",
+        "current_level": 1,
+        "total_xp": 0,
+        "job_profile": "general",
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.users.insert_one(user_doc)
+    logger.info(f"[seedAdmin] Admin creado correctamente: {email} (nombre: \"{name}\")")
 
 @app.on_event("startup")
 async def startup():

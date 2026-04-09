@@ -93,4 +93,5 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 
 ## Credenciales de prueba (demo)
 Ver `/app/memory/test_credentials.md`
-- test@cibermedida.es / Test2024!
+- test@cibermedida.es / Test2024! (usuario normal, nivel 1)
+- admin@cibermedida.es / Admin2024! (rol admin, creado por seedAdmin)

@@ -9,6 +9,7 @@ import exercisesRouter from './routes/exercises.js';
 import progressRouter from './routes/progress.js';
 import usersRouter from './routes/users.js';
 import pool from './db.js';
+import { seedAdmin } from './services/seedAdmin.js';
 
 const app = express();
 
@@ -77,6 +78,10 @@ app.get('/api/health', async (_req, res) => {
 const PORT = parseInt(process.env.PORT || '3002');
 app.listen(PORT, () => {
   console.log(`[server] Puerto ${PORT} | CORS: ${allowedOrigins.join(', ') || 'DISABLED'}`);
+
+  // Primer arranque seguro: crea el admin si no existe.
+  // Sin endpoint. Sin efecto si las variables no están definidas o el admin ya existe.
+  seedAdmin();
 });
 
 export default app;

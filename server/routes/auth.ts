@@ -46,7 +46,7 @@ router.post('/login', async (req, res) => {
     return;
   }
   const token = createToken(user.id, user.email);
-  res.json({ token, user: { id: user.id, email: user.email, name: user.name, current_level: user.current_level, total_xp: user.total_xp, job_profile: user.job_profile } });
+  res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user', current_level: user.current_level, total_xp: user.total_xp, job_profile: user.job_profile } });
 });
 
 router.get('/me', async (req, res) => {
