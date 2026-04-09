@@ -283,12 +283,31 @@ export default function Train() {
         audio: true,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setCameraReady(true);
-        requestAnimationFrame(drawLoop);
-      }
+
+      // setCameraReady BEFORE play() so a play() rejection
+      // never prevents the button from becoming active.
+      setCameraReady(true);
+
+      // Attach stream to video element. Use a small delay so React
+      // has committed the DOM after the state update above.
+      const attach = () => {
+        const vid = videoRef.current;
+        if (vid) {
+          vid.srcObject = stream;
+          // play() without await — autoPlay attr handles it;
+          // separating the catch prevents AbortError from triggering setCameraError.
+          vid.play().catch(() => {
+            // Silently ignored: browser autoPlay (muted) will kick in.
+          });
+          requestAnimationFrame(drawLoop);
+        }
+      };
+
+      // Retry attach up to 3 times (covers React lazy + Suspense timing).
+      attach();
+      setTimeout(attach, 50);
+      setTimeout(attach, 200);
+
     } catch (err: unknown) {
       const errObj = err as { name?: string; message?: string };
       const msgs: Record<string, string> = {
@@ -298,6 +317,18 @@ export default function Train() {
       setCameraError(msgs[errObj.name ?? ''] ?? `Error al acceder a la cámara: ${errObj.message}`);
     }
   };
+
+  // Re-attach srcObject if video element remounts after cameraReady
+  // (can happen with React reconciliation after lazy load).
+  useEffect(() => {
+    if (cameraReady && streamRef.current && videoRef.current) {
+      const vid = videoRef.current;
+      if (!vid.srcObject) {
+        vid.srcObject = streamRef.current;
+        vid.play().catch(() => {});
+      }
+    }
+  }, [cameraReady]);
 
   // ── Update vision tracker from face landmarks ────────────────────────────
   const updateTracker = useCallback((lm: Point3D[], tsMs: number) => {
