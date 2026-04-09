@@ -54,6 +54,14 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 
 ---
 
+## Fixes verificados y cerrados (iteración 3 — 2026-02)
+
+- [x] **Bug vídeo `Train.tsx` / `Train.js`**: Preview de cámara no se mostraba. Fix: `AbortError` silenciado, retry 3× `srcObject`, `setCameraReady` antes de `play()`, `useEffect` de re-attachment. ✅ Verificado (100% tests)
+- [x] **Bug interceptor 401 `api.js` / `api.ts`**: Redirigía a `/` en login fallido. Fix: solo redirige si `auth_token` presente en localStorage. ✅ Verificado (100% tests)
+- [x] MediaPipe carga desde CDN en Playwright headless y muestra "MediaPipe activo". ✅
+- [x] Dashboard: nivel, XP, ejercicios, sesiones — todos visibles. ✅
+- [x] Logout limpia estado auth y redirige a landing. ✅
+
 ## Backlog priorizado
 
 ### P0 — Despliegue real en VPS
