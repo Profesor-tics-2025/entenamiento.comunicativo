@@ -1,0 +1,81 @@
+{
+  "theme": "dark",
+  "archetype": "4 (Swiss & High-Contrast) / Vercel-inspired Control Room",
+  "typography": {
+    "headings": "Outfit",
+    "body": "Inter",
+    "mono": "JetBrains Mono",
+    "hierarchy_rules": "H1: text-4xl to text-5xl tracking-tighter font-semibold, H2: text-2xl to text-3xl tracking-tight font-medium, H3: text-xl tracking-tight, Labels/Overlines: uppercase tracking-[0.2em] text-xs font-medium"
+  },
+  "colors": {
+    "backgrounds": {
+      "primary": "#0A0E1A",
+      "surface": "#111827",
+      "card": "#1F2937"
+    },
+    "text": {
+      "primary": "#F1F5F9",
+      "muted": "#94A3B8"
+    },
+    "accents": {
+      "cyan": "#06B6D4",
+      "violet": "#8B5CF6",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "danger": "#EF4444"
+    },
+    "usage": "Base the entire app in deep navy/obsidian. Use the cyan and violet exclusively for AI-related actions, data visualization, and primary CTAs. Text is off-white to reduce eye strain."
+  },
+  "layout": {
+    "spacing": "Dashboard uses dense 'Control Room' spacing (gap-4, p-4 to p-6). Landing page uses generous spacing (py-24, gap-12).",
+    "grid": "Use CSS Grid extensively. Dashboard main views typically follow a 12-column subgrid or bento-style layouts (col-span-4 vs col-span-8).",
+    "borders": "Expose the skeleton. Use 1px solid rgba(255,255,255,0.05) or border-white/5 to define boundaries instead of heavy shadows."
+  },
+  "components": {
+    "cards": "bg-[#1F2937] border border-white/5 rounded-xl. Interaction: hover:shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:-translate-y-0.5 transition-all duration-300.",
+    "inputs": "bg-[#111827] border border-white/10 rounded-lg text-[#F1F5F9] placeholder:text-[#94A3B8]. Focus: ring-2 ring-[#06B6D4] ring-offset-1 ring-offset-[#0A0E1A].",
+    "buttons": "Primary: bg-[#06B6D4] text-[#0A0E1A] font-semibold hover:bg-[#06B6D4]/90 rounded-md. Ghost: hover:bg-white/5 text-[#F1F5F9].",
+    "badges": "Pill shape (rounded-full), bg-[#0A0E1A] border border-[#06B6D4] text-[#06B6D4] text-xs px-2.5 py-0.5 font-medium.",
+    "glassmorphism": "For sticky headers or floating overlays: backdrop-blur-xl bg-[#0A0E1A]/70 border-b border-white/10."
+  },
+  "motion_and_interactions": {
+    "hover": "Scale and subtle glow on actionable cards.",
+    "loading": "Skeleton shimmer utilizing absolute pseudo-elements with a subtle cyan/white gradient moving left to right over bg-surface.",
+    "charts": "Recharts tooltips must have bg-[#1F2937] and border-white/10. Line charts use #06B6D4 and #8B5CF6 with a subtle gradient area fill underneath."
+  },
+  "media": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1762279389042-9439bfb6c155?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjB0ZWNobm9sb2d5JTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3NzU3NTUzNTl8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract neon lines forming a digital landscape. Use as an absolute background with opacity-30 and mix-blend-screen for the landing page hero."
+    },
+    "user_avatars": [
+      "https://images.unsplash.com/photo-1770894807398-2b07965c13f3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwzfHxidXNpbmVzcyUyMHByb2ZpbGUlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NzU3NTUzNTB8MA&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1655249481446-25d575f1c054?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwyfHxidXNpbmVzcyUyMHByb2ZpbGUlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NzU3NTUzNTB8MA&ixlib=rb-4.1.0&q=85"
+    ],
+    "exercise_thumbnails": [
+      "https://images.unsplash.com/photo-1617539315872-856e153008a3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBnaXZpbmclMjBwcmVzZW50YXRpb24lMjBkYXJrJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3NzU3NTUzNTB8MA&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1761319659795-543075eaeaad?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGRhcmslMjB0ZWNobm9sb2d5JTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3NzU3NTUzNTl8MA&ixlib=rb-4.1.0&q=85"
+    ]
+  },
+  "specific_pages": {
+    "landing": "Immersive hero overlaying the neon abstract image. Use a Vercel-like grid (border-collapse) for features, with subtle 1px white/10 borders separating items. High contrast text.",
+    "dashboard": "Level badge top right, XP bar prominently displayed in the header or top widget. Recent sessions displayed in a dense, list-like format rather than oversized cards.",
+    "training_room": "CRITICAL: The desktop view must be h-screen with overflow-hidden (no scrolling). Center dominant block is the video feed overlaying the MediaPipe canvas. Right sidebar: Live metrics (gauges, timers). Bottom area overlaid on video: Teleprompter with transparent/glassmorphism background.",
+    "report": "8-block AI report bento grid. Executive summary spans full width at the top. The remaining 7 blocks (verbal, rhythm, fillers, visual, structure, historical, next steps) fit into a 3 or 4-column dense grid.",
+    "exercise_browser": "Category tabs using Shadcn Tabs. Exercise cards use image thumbnails from media list, with difficulty pills on top right.",
+    "profile": "Simple 2-column layout (Left: Navigation, Right: Forms/Settings). Dark inputs with cyan focus rings."
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure all text on bg-card (#1F2937) passes 4.5:1 ratio using #F1F5F9. Use standard APCA guidelines.",
+    "testing_attributes": "All interactive elements MUST have data-testid attributes (e.g., data-testid='start-training-btn', data-testid='exercise-card')."
+  },
+  "instructions_to_main_agent": [
+    "You are building a React 18 + TypeScript frontend using Tailwind CSS.",
+    "Add 'Outfit' to Google Fonts in index.html for headings, and 'Inter' for the body.",
+    "Use Tailwind arbitrary values (e.g., bg-[#0A0E1A]) or configure them directly in tailwind.config.js for consistent usage.",
+    "Install and use lucide-react for standard icons.",
+    "When using Shadcn UI, strip out light mode variables and replace with the provided hex values for a unified dark theme.",
+    "Implement Recharts for all data visualization in the report and progress pages, styling lines/bars with the cyan/violet accent colors.",
+    "Ensure the Training Room UI forces 100vh on desktop using h-screen and hidden overflows, utilizing flex or grid to allocate available space dynamically."
+  ]
+}
