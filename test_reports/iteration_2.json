@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 2 testing: All 15 backend tests pass (100%). Core UI flows working: login, dashboard, exercises (40), train (MediaPipe activo), progress, profile. Found 1 critical bug: wrong credentials silently closes auth modal without showing error message.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AuthModal / api.js interceptor",
+        "issue": "Wrong credentials (401) silently closes the login modal instead of showing error message. Root cause: axios interceptor in /app/frontend/src/lib/api.js calls window.location.href='/' on ANY 401 response, including failed login attempts - this redirects before the catch block can call setError(). Modal closes without user feedback.",
+        "selector": "[data-testid='auth-error']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_backend.py",
+    "/app/test_reports/pytest/pytest_results_iter2.xml"
+  ],
+  "action_items": [
+    "Fix api.js interceptor: only call window.location.href='/' on 401 if a token IS present in localStorage (i.e., session expired). If no token, it means it's a login attempt and the error should propagate to the catch block normally. Fix: `if (error.response?.status === 401 && localStorage.getItem('auth_token')) { localStorage.removeItem... window.location.href='/' }` else just `return Promise.reject(error)`"
+  ],
+  "critical_code_review_comments": [
+    "api.js interceptor redirects to '/' on ALL 401s including login failures - should only redirect on session expiry (when auth_token exists). Fix: add `&& localStorage.getItem('auth_token')` condition before redirect.",
+    "server.py CORS: allow_origins=['*'] with allow_credentials=True is a security issue for production",
+    "No brute force protection on /api/auth/login endpoint"
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "100% (15/15)", "frontend": "85% (error msg on wrong creds broken)" },
+  "test_credentials": "test@cibermedida.es / Test2024!",
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All flows working except auth error display. Fix api.js interceptor as described in action_items. After fix, test that wrong credentials shows error message inside modal (data-testid='auth-error'). All other flows (dashboard, exercises 40 cards, train MediaPipe activo, progress, profile) confirmed working.",
+  "rca_of_issue": "Bug: api.js line 20 - interceptor catches ALL 401 responses including login failures and calls window.location.href='/' which reloads the page before the catch block in Landing.js AuthModal can call setError(). Fix: only redirect if auth_token exists in localStorage (indicating expired session, not failed login)."
+}

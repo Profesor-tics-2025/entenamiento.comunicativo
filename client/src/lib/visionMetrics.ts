@@ -174,16 +174,21 @@ export class VisionTracker {
 }
 
 // ── MediaPipe initialization ──────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let faceLandmarker: any = null;
 
 export async function initMediaPipe() {
-  // @ts-ignore — dynamic import from CDN
-  const { FaceLandmarker, FilesetResolver } = await import(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js'
-  );
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore — dynamic CDN import, not resolvable at compile time
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const mp = await (Function(
+    'return import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.mjs")'
+  )() as Promise<{ FaceLandmarker: { createFromOptions: (resolver: unknown, opts: unknown) => Promise<unknown> }; FilesetResolver: { forVisionTasks: (path: string) => Promise<unknown> } }>);
+
+  const { FaceLandmarker, FilesetResolver } = mp;
 
   const filesetResolver = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm'
   );
 
   faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
@@ -203,7 +208,8 @@ export async function initMediaPipe() {
 export function detectFace(videoEl: HTMLVideoElement, timestampMs: number): Point3D[] | null {
   if (!faceLandmarker) return null;
   try {
-    const result = faceLandmarker.detectForVideo(videoEl, timestampMs);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const result = faceLandmarker.detectForVideo(videoEl, timestampMs) as { faceLandmarks?: Point3D[][] };
     if (result.faceLandmarks?.[0]) return result.faceLandmarks[0];
   } catch { /* ignore */ }
   return null;

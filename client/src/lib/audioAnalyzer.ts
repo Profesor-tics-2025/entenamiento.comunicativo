@@ -11,7 +11,7 @@ export class AudioAnalyzer {
   private longPauses = 0;
   private shortPauses = 0;
   private readonly SILENCE_THRESHOLD_DB = -45;
-  private readonly buffer: Float32Array;
+  private readonly buffer: Float32Array<ArrayBuffer>;
 
   constructor(stream: MediaStream) {
     this.audioCtx = new AudioContext();
@@ -22,7 +22,7 @@ export class AudioAnalyzer {
     // Connect source → analyser only (NOT to destination)
     source.connect(this.analyser);
 
-    this.buffer = new Float32Array(this.analyser.fftSize);
+    this.buffer = new Float32Array(this.analyser.fftSize) as Float32Array<ArrayBuffer>;
 
     // MediaRecorder takes raw stream directly
     this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -37,7 +37,9 @@ export class AudioAnalyzer {
 
   getFrame(): { rms: number; db: number; isSpeaking: boolean } {
     this.analyser.getFloatTimeDomainData(this.buffer);
-    const rms = Math.sqrt(this.buffer.reduce((s, v) => s + v * v, 0) / this.buffer.length);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buf = this.buffer as any as number[];
+    const rms = Math.sqrt(buf.reduce((s: number, v: number) => s + v * v, 0) / buf.length);
     const db = 20 * Math.log10(rms + 1e-9);
     const isSpeaking = db > this.SILENCE_THRESHOLD_DB;
 
