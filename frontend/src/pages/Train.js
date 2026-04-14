@@ -251,12 +251,27 @@ export default function Train() {
         audio: true,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setCameraReady(true);
-        requestAnimationFrame(drawLoop);
-      }
+
+      // Mark camera ready BEFORE play() so an AbortError never blocks the UI.
+      setCameraReady(true);
+
+      // Attach stream to the video element. Use a small retry in case React
+      // hasn't committed the DOM yet (lazy load / Suspense timing).
+      const attach = () => {
+        const vid = videoRef.current;
+        if (vid) {
+          vid.srcObject = stream;
+          // Do NOT await play() — the autoPlay attr handles playback.
+          // A separate .catch() prevents AbortError from surfacing as a camera error.
+          vid.play().catch(() => {});
+          requestAnimationFrame(drawLoop);
+        }
+      };
+
+      attach();
+      setTimeout(attach, 50);
+      setTimeout(attach, 200);
+
     } catch (err) {
       const msgs = {
         NotAllowedError: 'Permiso de cámara denegado. Permite el acceso en la configuración del navegador.',
@@ -265,6 +280,18 @@ export default function Train() {
       setCameraError(msgs[err.name] || `Error al acceder a la cámara: ${err.message}`);
     }
   };
+
+  // Re-attach srcObject if the video element remounts after cameraReady
+  // (can happen with React reconciliation after lazy load).
+  useEffect(() => {
+    if (cameraReady && streamRef.current && videoRef.current) {
+      const vid = videoRef.current;
+      if (!vid.srcObject) {
+        vid.srcObject = streamRef.current;
+        vid.play().catch(() => {});
+      }
+    }
+  }, [cameraReady]);
 
   // ── Update vision tracker from face landmarks ─────────────────────────────
   const updateTracker = useCallback((lm, tsMs) => {
@@ -409,7 +436,13 @@ export default function Train() {
     } catch { /* continue */ }
 
     chunksRef.current = [];
-    const mr = new MediaRecorder(streamRef.current, { mimeType: 'audio/webm' });
+    // Pick the best supported mimeType — fall back to browser default if none match.
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : '';
+    const mr = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : {});
     mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     mr.start(1000);
     mediaRecorderRef.current = mr;

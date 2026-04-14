@@ -54,6 +54,11 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 
 ---
 
+## Fixes verificados y cerrados (iteración 5 — 2026-02)
+
+- [x] **Bug cámara `Train.js`** (demo): `await play()` lanzaba `AbortError` → `setCameraReady` nunca ejecutado → overlay bloqueaba el vídeo y botón "Iniciar" deshabilitado. Fix: `setCameraReady(true)` antes de `play()`, `play().catch(()=>{})` sin await, retry 3× `srcObject`, `useEffect` de re-attachment. ✅
+- [x] **MediaRecorder mimeType**: fallback `audio/webm;codecs=opus → audio/webm → default navegador` para compatibilidad cross-browser. ✅
+
 ## Fixes verificados y cerrados (iteración 4 — 2026-02)
 
 - [x] **Bug registro frontend**: Error handler leía solo `.detail` (FastAPI). Fix: lee `.detail || .error || .message` para soportar Node.js + FastAPI. ✅
