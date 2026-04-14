@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Radio, Mic, Eye, Brain, BarChart3, ChevronRight, Star, Shield, Zap } from 'lucide-react';
@@ -14,7 +14,6 @@ const FEATURES = [
 
 function AuthModal({ mode, onClose, onSwitch }) {
   const { login, register } = useAuth();
-  const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '', name: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,10 +29,12 @@ function AuthModal({ mode, onClose, onSwitch }) {
         if (!form.name.trim()) { setError('El nombre es obligatorio'); setLoading(false); return; }
         await register(form.email, form.password, form.name);
       }
-      navigate('/dashboard');
+      // Navigation is handled by the parent Landing via useEffect on user state.
+      // This avoids a race condition where navigate() fires before setUser() propagates.
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Error al procesar la solicitud. Inténtelo de nuevo.');
+      // Node.js backend returns { error: "..." }, FastAPI returns { detail: "..." }
+      const msg = err.response?.data?.detail || err.response?.data?.error || err.message;
+      setError(typeof msg === 'string' && msg ? msg : 'Error al procesar la solicitud. Inténtelo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -125,7 +126,15 @@ function AuthModal({ mode, onClose, onSwitch }) {
 }
 
 export default function Landing() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [authMode, setAuthMode] = useState(null);
+
+  // Navigate to dashboard when user becomes authenticated.
+  // This handles both normal login/register and the race-condition fallback.
+  useEffect(() => {
+    if (user) navigate('/dashboard', { replace: true });
+  }, [user, navigate]);
 
   return (
     <div className="min-h-screen bg-[#0A0E1A] text-[#F1F5F9]">

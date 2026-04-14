@@ -20,33 +20,47 @@ router.post('/register', async (req, res) => {
     return;
   }
 
-  const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]) as any;
-  if ((existing as any[]).length > 0) {
-    res.status(400).json({ error: 'El email ya está registrado' });
-    return;
+  try {
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]) as any;
+    if ((existing as any[]).length > 0) {
+      res.status(400).json({ error: 'El email ya está registrado' });
+      return;
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+    const [result] = await pool.query(
+      'INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)',
+      [email.toLowerCase(), hash, name.trim()]
+    ) as any;
+
+    const userId = (result as any).insertId;
+    const token = createToken(userId, email.toLowerCase());
+    res.json({ token, user: { id: userId, email: email.toLowerCase(), name: name.trim(), role: 'user', current_level: 1, total_xp: 0, job_profile: 'general' } });
+  } catch (err: unknown) {
+    console.error('[auth/register] Error:', err);
+    res.status(500).json({ error: 'Error interno del servidor. Inténtelo de nuevo.' });
   }
-
-  const hash = await bcrypt.hash(password, 12);
-  const [result] = await pool.query(
-    'INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)',
-    [email.toLowerCase(), hash, name.trim()]
-  ) as any;
-
-  const userId = (result as any).insertId;
-  const token = createToken(userId, email.toLowerCase());
-  res.json({ token, user: { id: userId, email: email.toLowerCase(), name: name.trim(), role: 'user', current_level: 1, total_xp: 0, job_profile: 'general' } });
 });
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email?.toLowerCase()]) as any;
-  const user = (rows as any[])[0];
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-    res.status(401).json({ error: 'Email o contraseña incorrectos' });
+  if (!email || !password) {
+    res.status(400).json({ error: 'Email y contraseña son obligatorios' });
     return;
   }
-  const token = createToken(user.id, user.email);
-  res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user', current_level: user.current_level, total_xp: user.total_xp, job_profile: user.job_profile } });
+  try {
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]) as any;
+    const user = (rows as any[])[0];
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      res.status(401).json({ error: 'Email o contraseña incorrectos' });
+      return;
+    }
+    const token = createToken(user.id, user.email);
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user', current_level: user.current_level, total_xp: user.total_xp, job_profile: user.job_profile } });
+  } catch (err: unknown) {
+    console.error('[auth/login] Error:', err);
+    res.status(500).json({ error: 'Error interno del servidor. Inténtelo de nuevo.' });
+  }
 });
 
 router.get('/me', async (req, res) => {

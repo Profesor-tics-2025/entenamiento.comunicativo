@@ -2,9 +2,10 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../lib/api';
 
 interface User {
-  id: string;
+  id: string | number;
   email: string;
   name: string;
+  role: string;
   current_level: number;
   total_xp: number;
   job_profile: 'general' | 'commercial' | 'technical';

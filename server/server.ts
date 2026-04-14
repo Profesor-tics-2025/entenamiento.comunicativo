@@ -80,6 +80,14 @@ app.get('/api/health', async (_req, res) => {
   res.json({ status: 'ok', db: dbStatus, uptime: process.uptime() });
 });
 
+// ── Global error handler ───────────────────────────────────────────────────────
+// Captura excepciones no controladas y devuelve JSON en vez de HTML de Express.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[server] Unhandled error:', err.message);
+  res.status(500).json({ error: 'Error interno del servidor.' });
+});
+
 const PORT = parseInt(process.env.PORT || '3002');
 app.listen(PORT, () => {
   console.log(`[server] Puerto ${PORT} | CORS: ${allowedOrigins.join(', ') || 'DISABLED'}`);

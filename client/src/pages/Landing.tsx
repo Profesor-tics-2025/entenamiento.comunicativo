@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Radio, Mic, Eye, Brain, BarChart3, ChevronRight, Star, Shield, Zap } from 'lucide-react';
@@ -26,7 +26,6 @@ function AuthModal({ mode, onClose, onSwitch }: {
   mode: AuthMode; onClose: () => void; onSwitch: () => void;
 }) {
   const { login, register } = useAuth();
-  const navigate = useNavigate();
   const [form, setForm] = useState<AuthForm>({ email: '', password: '', name: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,11 +41,13 @@ function AuthModal({ mode, onClose, onSwitch }: {
         if (!form.name.trim()) { setError('El nombre es obligatorio'); setLoading(false); return; }
         await register(form.email, form.password, form.name);
       }
-      navigate('/dashboard');
+      // Navigation is handled by the parent Landing via useEffect on user state.
+      // This avoids a race condition where navigate() fires before setUser() propagates.
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: unknown } } };
-      const detail = e.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Error al procesar la solicitud. Inténtelo de nuevo.');
+      const e = err as { response?: { data?: { detail?: unknown; error?: unknown } }; message?: string };
+      // Node.js backend returns { error: "..." }, FastAPI returns { detail: "..." }
+      const msg = e.response?.data?.detail || e.response?.data?.error || e.message;
+      setError(typeof msg === 'string' && msg ? msg : 'Error al procesar la solicitud. Inténtelo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -133,7 +134,15 @@ function AuthModal({ mode, onClose, onSwitch }: {
 }
 
 export default function Landing() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+
+  // Navigate to dashboard when user becomes authenticated.
+  // This handles both normal login/register and the race-condition fallback.
+  useEffect(() => {
+    if (user) navigate('/dashboard', { replace: true });
+  }, [user, navigate]);
 
   return (
     <div className="min-h-screen bg-[#0A0E1A] text-[#F1F5F9]">
