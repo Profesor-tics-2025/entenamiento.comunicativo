@@ -54,13 +54,13 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 
 ---
 
-## Fixes verificados y cerrados (iteración 3 — 2026-02)
+## Fixes verificados y cerrados (iteración 4 — 2026-02)
 
-- [x] **Bug vídeo `Train.tsx` / `Train.js`**: Preview de cámara no se mostraba. Fix: `AbortError` silenciado, retry 3× `srcObject`, `setCameraReady` antes de `play()`, `useEffect` de re-attachment. ✅ Verificado (100% tests)
-- [x] **Bug interceptor 401 `api.js` / `api.ts`**: Redirigía a `/` en login fallido. Fix: solo redirige si `auth_token` presente en localStorage. ✅ Verificado (100% tests)
-- [x] MediaPipe carga desde CDN en Playwright headless y muestra "MediaPipe activo". ✅
-- [x] Dashboard: nivel, XP, ejercicios, sesiones — todos visibles. ✅
-- [x] Logout limpia estado auth y redirige a landing. ✅
+- [x] **Bug registro frontend**: Error handler leía solo `.detail` (FastAPI). Fix: lee `.detail || .error || .message` para soportar Node.js + FastAPI. ✅
+- [x] **Race condition navigate**: `navigate('/dashboard')` dentro del try→ ProtectedRoute veía user=null. Fix: movido a `useEffect(() => { if (user) navigate('/dashboard') }, [user])` en `Landing.js` y `Landing.tsx`. ✅
+- [x] **User interface AuthContext.tsx**: Añadidos `role: string` e `id: string | number`. ✅
+- [x] **Node.js auth.ts**: try/catch en register y login; error handler global en server.ts devuelve JSON en vez de HTML. ✅
+- [x] **Auto-redirect usuario autenticado a '/'**: Detectado y redirigido por useEffect. ✅
 
 ## Backlog priorizado
 
