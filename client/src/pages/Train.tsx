@@ -10,6 +10,16 @@ import {
 } from 'lucide-react';
 
 // ── Vision math helpers ──────────────────────────────────────────────────────
+
+// Spanish filler words for real-time speech analysis
+const FILLERS_ES = [
+  'eh', 'este', 'bueno', 'pues', 'osea', 'o sea', 'básicamente', 'literalmente',
+  'entonces', 'digamos', 'mmm', 'a ver', 'eeeh', 'hmm', 'de hecho', 'o sea que',
+];
+
+// Minimum recording duration in seconds for valid analysis
+const MIN_DURATION_SECONDS = 180;
+
 interface Point3D { x: number; y: number; z: number }
 
 function dist(a: Point3D, b: Point3D): number {
@@ -200,6 +210,13 @@ export default function Train() {
   const faceLandmarkerRef = useRef<unknown>(null);
   const metricsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioFrameRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Speech recognition refs
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  const speechWordCountRef = useRef(0);
+  const speechFillerCountRef = useRef(0);
+  const speechStartTimeRef = useRef<number | null>(null);
+  const lastResultTimeRef = useRef<number | null>(null);
+  const pauseCountRef = useRef(0);
 
   const vt = useRef<VisionTracker>({
     gazeFrames: 0, totalFrames: 0,
@@ -221,6 +238,8 @@ export default function Train() {
   const [alertType, setAlertType] = useState<AlertType>(null);
   const [mpStatus, setMpStatus] = useState<MpStatus>('idle');
   const [liveMetrics, setLiveMetrics] = useState({ wpm: 0, gaze: 0, fillers: 0, pauses: 0 });
+  const [minDurationWarning, setMinDurationWarning] = useState(false);
+  const [speechApiAvailable, setSpeechApiAvailable] = useState(false);
 
   useEffect(() => {
     if (exerciseId) {
@@ -231,7 +250,12 @@ export default function Train() {
   useEffect(() => {
     loadMediaPipe();
     initCamera();
-    return () => cleanup();
+    const handleUnload = () => cleanup();
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      cleanup();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -440,6 +464,61 @@ export default function Train() {
   }, [mpStatus]);
 
   // ── Recording controls ───────────────────────────────────────────────────
+
+  const startSpeechRecognition = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    setSpeechApiAvailable(true);
+    speechWordCountRef.current = 0;
+    speechFillerCountRef.current = 0;
+    pauseCountRef.current = 0;
+    speechStartTimeRef.current = Date.now();
+    lastResultTimeRef.current = Date.now();
+
+    const rec = new SR();
+    rec.lang = 'es-ES';
+    rec.continuous = true;
+    rec.interimResults = false;
+    let isActive = true;
+
+    rec.onresult = (e: any) => {
+      const now = Date.now();
+      if (lastResultTimeRef.current && (now - lastResultTimeRef.current) > 3000) {
+        pauseCountRef.current++;
+      }
+      lastResultTimeRef.current = now;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (!e.results[i].isFinal) continue;
+        const text = e.results[i][0].transcript.toLowerCase().trim();
+        const words = text.split(/\s+/).filter(Boolean);
+        speechWordCountRef.current += words.length;
+        FILLERS_ES.forEach(f => {
+          const m = text.match(new RegExp(`\\b${f}\\b`, 'gi'));
+          if (m) speechFillerCountRef.current += m.length;
+        });
+        const elapsedMin = (Date.now() - speechStartTimeRef.current!) / 60000;
+        const wpm = elapsedMin > 0.01 ? Math.round(speechWordCountRef.current / elapsedMin) : 0;
+        setLiveMetrics(prev => ({
+          ...prev,
+          wpm: wpm > 0 ? wpm : prev.wpm,
+          fillers: speechFillerCountRef.current,
+          pauses: pauseCountRef.current,
+        }));
+      }
+    };
+
+    rec.onerror = (e: any) => {
+      if (e.error !== 'no-speech' && e.error !== 'aborted') console.warn('[STT]', e.error);
+    };
+    rec.onend = () => { if (isActive) try { rec.start(); } catch {} };
+    rec.start();
+    recognitionRef.current = { stop: () => { isActive = false; try { rec.stop(); } catch {} } };
+  };
+
+  const stopSpeechRecognition = () => {
+    if (recognitionRef.current) { recognitionRef.current.stop(); recognitionRef.current = null; }
+  };
+
   const startRecording = async () => {
     if (!streamRef.current || !cameraReady) return;
 
@@ -473,26 +552,27 @@ export default function Train() {
     setElapsed(0);
     timerRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
 
-    // Poll audio metrics + random WPM estimate every 2.5s
+    // Poll AudioAnalyzer for live gaze updates; WPM/fillers come from Speech API
     metricsIntervalRef.current = setInterval(() => {
       if (audioAnalyzerRef.current) {
-        const frame = audioAnalyzerRef.current.getFrame();
-        const isSpeaking = frame.isSpeaking;
-        setLiveMetrics(prev => ({
-          ...prev,
-          wpm: isSpeaking ? 100 + Math.floor(Math.random() * 60) : prev.wpm,
-          fillers: Math.floor(Math.random() * 4),
-          pauses: audioAnalyzerRef.current?.getSummary().longPauses ?? prev.pauses,
-        }));
+        const summary = audioAnalyzerRef.current.getSummary();
+        // Only update pauses from AudioAnalyzer when Speech API is NOT available
+        if (!recognitionRef.current) {
+          setLiveMetrics(prev => ({ ...prev, pauses: summary.longPauses }));
+        }
       }
       const rand = Math.random();
-      setAlertType(rand < 0.07 ? 'wpm' : rand < 0.14 ? 'pause' : rand < 0.2 ? 'filler' : null);
-    }, 2500);
+      setAlertType(rand < 0.07 ? 'wpm' : rand < 0.12 ? 'pause' : null);
+    }, 3000);
+
+    // Start real-time speech recognition
+    startSpeechRecognition();
   };
 
   const pauseRecording = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
+    stopSpeechRecognition();
     setPhase('paused');
   };
 
@@ -500,23 +580,26 @@ export default function Train() {
     timerRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
     metricsIntervalRef.current = setInterval(() => {
       if (audioAnalyzerRef.current) {
-        const frame = audioAnalyzerRef.current.getFrame();
-        setLiveMetrics(prev => ({
-          ...prev,
-          wpm: frame.isSpeaking ? 100 + Math.floor(Math.random() * 60) : prev.wpm,
-          fillers: Math.floor(Math.random() * 4),
-          pauses: audioAnalyzerRef.current?.getSummary().longPauses ?? prev.pauses,
-        }));
+        const summary = audioAnalyzerRef.current.getSummary();
+        if (!recognitionRef.current) {
+          setLiveMetrics(prev => ({ ...prev, pauses: summary.longPauses }));
+        }
       }
-    }, 2500);
+      const rand = Math.random();
+      setAlertType(rand < 0.07 ? 'wpm' : rand < 0.12 ? 'pause' : null);
+    }, 3000);
+    startSpeechRecognition();
     setPhase('recording');
   };
 
-  const stopRecording = () => {
+  // Actual stop after duration check passes
+  const actuallyStopRecording = () => {
+    setMinDurationWarning(false);
     if (timerRef.current) clearInterval(timerRef.current);
     if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
     if (audioFrameRef.current) clearInterval(audioFrameRef.current);
     setAlertType(null);
+    stopSpeechRecognition();
     setPhase('processing');
 
     const analyzer = audioAnalyzerRef.current;
@@ -526,6 +609,14 @@ export default function Train() {
       const summary = analyzer.getSummary();
       analyzer.stop().then(blob => processSession(blob, summary));
     }
+  };
+
+  const stopRecording = () => {
+    if (elapsed < MIN_DURATION_SECONDS) {
+      setMinDurationWarning(true);
+      return;
+    }
+    actuallyStopRecording();
   };
 
   const processSession = async (audioBlob: Blob, pauseSummary: { longPauses: number; shortPauses: number }) => {
@@ -602,6 +693,7 @@ export default function Train() {
     if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
     if (audioFrameRef.current) clearInterval(audioFrameRef.current);
     cancelAnimationFrame(animFrameRef.current);
+    if (recognitionRef.current) { recognitionRef.current.stop(); recognitionRef.current = null; }
     try { audioAnalyzerRef.current?.stop(); } catch {}
     audioAnalyzerRef.current = null;
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
@@ -639,6 +731,14 @@ export default function Train() {
               <><div className="w-2 h-2 rounded-full bg-[#F59E0B]" /><span className="text-[#F59E0B] hidden sm:block">Modo estimado</span></>
             )}
           </div>
+          {phase === 'recording' && (
+            <div className="flex items-center gap-1.5 text-xs" data-testid="stt-status">
+              {speechApiAvailable
+                ? <><div className="w-2 h-2 rounded-full bg-[#8B5CF6]" /><span className="text-[#8B5CF6] hidden sm:block">Voz en tiempo real</span></>
+                : <><div className="w-2 h-2 rounded-full bg-white/20" /><span className="text-white/30 hidden sm:block">Voz estimada</span></>
+              }
+            </div>
+          )}
           {phase === 'recording' && (
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
@@ -712,6 +812,43 @@ export default function Train() {
           )}
         </div>
 
+        {/* ── Min duration warning dialog ── */}
+        {minDurationWarning && (
+          <div className="absolute inset-0 bg-[#0A0E1A]/85 backdrop-blur-sm flex items-center justify-center z-30" data-testid="min-duration-warning">
+            <div className="bg-[#1F2937] border border-[#F59E0B]/40 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-[#F59E0B]" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-semibold text-[#F1F5F9] text-sm">Grabación demasiado corta</h3>
+                  <p className="text-[#94A3B8] text-xs mt-0.5">Mínimo recomendado: 3 minutos</p>
+                </div>
+              </div>
+              <p className="text-[#94A3B8] text-sm mb-5 leading-relaxed">
+                Con menos de 3 minutos el análisis de voz e IA no tiene suficientes datos para ser preciso.
+                Llevas <span className="text-[#F1F5F9] font-mono font-semibold">{formatTime(elapsed)}</span> grabados.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMinDurationWarning(false)}
+                  data-testid="keep-recording-btn"
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-[#F1F5F9] py-2.5 rounded-xl text-sm transition-all font-medium"
+                >
+                  Seguir grabando
+                </button>
+                <button
+                  onClick={actuallyStopRecording}
+                  data-testid="force-stop-btn"
+                  className="flex-1 bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#0A0E1A] font-semibold py-2.5 rounded-xl text-sm transition-all"
+                >
+                  Terminar igual
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Right panel */}
         <div className="w-80 xl:w-96 flex-shrink-0 flex flex-col bg-[#0A0E1A] border-l border-white/5 overflow-y-auto">
           <div className="p-4 space-y-4">
@@ -728,25 +865,33 @@ export default function Train() {
             <div className="grid grid-cols-2 gap-3" data-testid="live-metrics">
               <MetricGauge label="Velocidad"
                 value={phase === 'recording' || phase === 'paused' ? liveMetrics.wpm : 0}
-                max={200} color="#06B6D4" unit=" ppm" icon={Mic} testId="metric-wpm" isReal={false} />
+                max={200} color="#06B6D4" unit=" ppm" icon={Mic} testId="metric-wpm" isReal={speechApiAvailable} />
               <MetricGauge label="Contacto visual"
                 value={phase === 'recording' || phase === 'paused' ? liveMetrics.gaze : 0}
                 max={100} color={mpIsReal ? '#10B981' : '#8B5CF6'} unit="%" icon={Eye}
                 testId="metric-gaze" isReal={mpIsReal} />
               <MetricGauge label="Muletillas"
                 value={phase === 'recording' || phase === 'paused' ? liveMetrics.fillers : 0}
-                max={20} color="#F59E0B" unit="" icon={MessageSquare} testId="metric-fillers" isReal={false} />
+                max={20} color="#F59E0B" unit="" icon={MessageSquare} testId="metric-fillers" isReal={speechApiAvailable} />
               <MetricGauge label="Pausas"
                 value={phase === 'recording' || phase === 'paused' ? liveMetrics.pauses : 0}
-                max={10} color="#10B981" unit="" icon={Clock} testId="metric-pauses" isReal={false} />
+                max={10} color="#10B981" unit="" icon={Clock} testId="metric-pauses" isReal={speechApiAvailable} />
             </div>
 
-            {mpIsReal && (
-              <div className="bg-[#10B981]/5 border border-[#10B981]/20 rounded-lg px-3 py-2 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] flex-shrink-0" />
-                <p className="text-[#10B981] text-xs">Contacto visual medido con MediaPipe en tiempo real</p>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              {mpIsReal && (
+                <div className="bg-[#10B981]/5 border border-[#10B981]/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] flex-shrink-0" />
+                  <p className="text-[#10B981] text-xs">Contacto visual medido con MediaPipe</p>
+                </div>
+              )}
+              {speechApiAvailable && (
+                <div className="bg-[#8B5CF6]/5 border border-[#8B5CF6]/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] flex-shrink-0" />
+                  <p className="text-[#8B5CF6] text-xs">Voz, muletillas y pausas en tiempo real</p>
+                </div>
+              )}
+            </div>
 
             {/* Controls */}
             <div className="space-y-2" data-testid="control-buttons">
@@ -764,8 +909,19 @@ export default function Train() {
                     <Pause className="w-4 h-4" /> Pausar
                   </button>
                   <button onClick={stopRecording} data-testid="stop-btn"
-                    className="w-full bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-                    <Square className="w-4 h-4" /> Terminar
+                    className={`w-full font-semibold py-3 rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
+                      elapsed >= MIN_DURATION_SECONDS
+                        ? 'bg-[#EF4444] hover:bg-[#EF4444]/90 text-white'
+                        : 'bg-white/5 hover:bg-white/10 text-[#94A3B8]'
+                    }`}>
+                    <span className="flex items-center gap-2 text-sm">
+                      <Square className="w-4 h-4" /> Terminar
+                    </span>
+                    {elapsed < MIN_DURATION_SECONDS && (
+                      <span className="text-xs opacity-60">
+                        {formatTime(MIN_DURATION_SECONDS - elapsed)} para mínimo
+                      </span>
+                    )}
                   </button>
                 </>
               )}
@@ -776,8 +932,19 @@ export default function Train() {
                     <Play className="w-4 h-4" /> Reanudar
                   </button>
                   <button onClick={stopRecording} data-testid="stop-btn"
-                    className="w-full bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-                    <Square className="w-4 h-4" /> Terminar
+                    className={`w-full font-semibold py-3 rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
+                      elapsed >= MIN_DURATION_SECONDS
+                        ? 'bg-[#EF4444] hover:bg-[#EF4444]/90 text-white'
+                        : 'bg-white/5 hover:bg-white/10 text-[#94A3B8]'
+                    }`}>
+                    <span className="flex items-center gap-2 text-sm">
+                      <Square className="w-4 h-4" /> Terminar
+                    </span>
+                    {elapsed < MIN_DURATION_SECONDS && (
+                      <span className="text-xs opacity-60">
+                        {formatTime(MIN_DURATION_SECONDS - elapsed)} para mínimo
+                      </span>
+                    )}
                   </button>
                 </>
               )}

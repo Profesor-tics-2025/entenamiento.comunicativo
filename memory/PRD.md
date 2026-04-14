@@ -54,10 +54,12 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 
 ---
 
-## Fixes verificados y cerrados (iteración 5 — 2026-02)
+## Fixes verificados y cerrados (iteración 6 — 2026-02)
 
-- [x] **Bug cámara `Train.js`** (demo): `await play()` lanzaba `AbortError` → `setCameraReady` nunca ejecutado → overlay bloqueaba el vídeo y botón "Iniciar" deshabilitado. Fix: `setCameraReady(true)` antes de `play()`, `play().catch(()=>{})` sin await, retry 3× `srcObject`, `useEffect` de re-attachment. ✅
-- [x] **MediaRecorder mimeType**: fallback `audio/webm;codecs=opus → audio/webm → default navegador` para compatibilidad cross-browser. ✅
+- [x] **WPM/muletillas/pausas en tiempo real**: Web Speech API (`SpeechRecognition`, `es-ES`, `continuous`) reemplaza `Math.random()`. Detecta fillers ES en tiempo real. Pausa = silencio > 3s entre resultados. `Train.js` + `Train.tsx`. ✅
+- [x] **Duración mínima 3 min**: Botón "Terminar" muestra cuenta regresiva. Si < 180s → diálogo de confirmación con opción "Seguir grabando" o "Terminar igual". ✅
+- [x] **beforeunload cleanup**: `window.addEventListener('beforeunload', cleanup)` en ambos frontends → cámara y micrófono se liberan al cerrar pestaña. ✅
+- [x] **Indicadores de fuente en tiempo real**: Punto morado "Voz en tiempo real" aparece en topbar cuando Speech API está activa. Leyendas en panel de métricas. ✅
 
 ## Fixes verificados y cerrados (iteración 4 — 2026-02)
 
