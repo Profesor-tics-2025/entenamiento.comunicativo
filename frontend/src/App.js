@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +11,7 @@ import Report from './pages/Report';
 import Progress from './pages/Progress';
 import Exercises from './pages/Exercises';
 import Profile from './pages/Profile';
+import Admin from './pages/Admin';
 import './App.css';
 
 function AppLayout({ children }) {
@@ -56,6 +58,11 @@ function App() {
             <ProtectedRoute>
               <AppLayout><Profile /></AppLayout>
             </ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <AdminRoute>
+              <AppLayout><Admin /></AppLayout>
+            </AdminRoute>
           } />
         </Routes>
       </BrowserRouter>

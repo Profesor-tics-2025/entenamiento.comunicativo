@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { jsPDF } from 'jspdf';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts';
 import {
   CheckCircle, XCircle, Zap, ChevronLeft, TrendingUp,
-  Mic, Eye, MessageSquare, AlignLeft, Clock, Award
+  Mic, Eye, MessageSquare, AlignLeft, Clock, Award, Download, Loader2
 } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -35,6 +36,159 @@ function ReportBlock({ title, icon: Icon, color, children, testId }) {
   );
 }
 
+// ── PDF generation ─────────────────────────────────────────────────────────────
+function generatePDF(data, sessionId) {
+  const r = data.report_json;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210;
+  const margin = 18;
+  const usable = W - margin * 2;
+  let y = 0;
+
+  const addPage = () => { doc.addPage(); y = 18; };
+  const checkY = (needed = 12) => { if (y + needed > 275) addPage(); };
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  doc.setFillColor(10, 14, 26);
+  doc.rect(0, 0, W, 40, 'F');
+  doc.setTextColor(6, 182, 212);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Entrenamiento Comunicativo', margin, 17);
+  doc.setTextColor(241, 245, 249);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Informe de sesión — Análisis generado por IA', margin, 25);
+  const dateStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+  doc.setTextColor(148, 163, 184);
+  doc.setFontSize(8);
+  doc.text(dateStr, W - margin, 25, { align: 'right' });
+  y = 50;
+
+  // ── Score / Puntuación ─────────────────────────────────────────────────────
+  const score = data.score ?? r?.puntuacionGlobal;
+  if (score != null) {
+    doc.setFillColor(31, 41, 55);
+    doc.roundedRect(margin, y, usable, 16, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(241, 245, 249);
+    doc.text('Puntuación global:', margin + 5, y + 10.5);
+    doc.setTextColor(6, 182, 212);
+    doc.setFontSize(14);
+    doc.text(`${score}/100`, W - margin - 5, y + 11, { align: 'right' });
+    y += 22;
+  }
+
+  // ── Helper functions ─────────────────────────────────────────────────────
+  const sectionHeader = (title, color = [6, 182, 212]) => {
+    checkY(14);
+    doc.setFillColor(...color);
+    doc.rect(margin, y, 3, 10, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(241, 245, 249);
+    doc.text(title, margin + 6, y + 7.5);
+    y += 14;
+  };
+
+  const bodyText = (text, indent = 0) => {
+    if (!text) return;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(209, 213, 219);
+    const lines = doc.splitTextToSize(String(text), usable - indent);
+    lines.forEach(line => {
+      checkY(6);
+      doc.text(line, margin + indent, y);
+      y += 5.5;
+    });
+    y += 2;
+  };
+
+  const metricRow = (label, value, note = '') => {
+    checkY(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`${label}:`, margin, y);
+    doc.setTextColor(6, 182, 212);
+    doc.text(String(value), margin + 55, y);
+    if (note) {
+      doc.setTextColor(209, 213, 219);
+      doc.setFont('helvetica', 'normal');
+      doc.text(note, margin + 80, y);
+    }
+    y += 7;
+  };
+
+  // ── Resumen ejecutivo ─────────────────────────────────────────────────────
+  if (r?.resumenEjecutivo) {
+    sectionHeader('Resumen ejecutivo');
+    bodyText(r.resumenEjecutivo);
+  }
+
+  // ── Métricas clave ─────────────────────────────────────────────────────────
+  sectionHeader('Métricas clave', [16, 185, 129]);
+  metricRow('Velocidad verbal',   `${r?.rendimientoVerbal?.wpm ?? '—'} ppm`);
+  metricRow('Contacto visual',    `${Math.round(r?.presenciaVisual?.gazePercentage ?? 0)}%`);
+  metricRow('Muletillas totales', `${r?.muletillasFluidez?.totalCount ?? '—'} (${r?.muletillasFluidez?.perMinute?.toFixed(1) ?? '—'}/min)`);
+  metricRow('Pausas largas',      `${r?.ritmoPausas?.longPauses ?? '—'}`);
+  metricRow('Pausas cortas',      `${r?.ritmoPausas?.shortPauses ?? '—'}`);
+  if (r?.muletillasFluidez?.topFillers?.length > 0) {
+    metricRow('Principales muletillas', r.muletillasFluidez.topFillers.join(', '));
+  }
+  y += 2;
+
+  // ── Rendimiento verbal ────────────────────────────────────────────────────
+  if (r?.rendimientoVerbal) {
+    sectionHeader('Rendimiento verbal', [6, 182, 212]);
+    if (r.rendimientoVerbal.wpmEvaluation)  bodyText(r.rendimientoVerbal.wpmEvaluation);
+    if (r.rendimientoVerbal.dictionClarity) bodyText(r.rendimientoVerbal.dictionClarity);
+  }
+
+  // ── Ritmo y pausas ────────────────────────────────────────────────────────
+  if (r?.ritmoPausas?.evaluation) {
+    sectionHeader('Ritmo y pausas', [245, 158, 11]);
+    bodyText(r.ritmoPausas.evaluation);
+  }
+
+  // ── Presencia visual ──────────────────────────────────────────────────────
+  if (r?.presenciaVisual) {
+    sectionHeader('Presencia visual', [16, 185, 129]);
+    if (r.presenciaVisual.facialRigidityDescription) bodyText(r.presenciaVisual.facialRigidityDescription);
+  }
+
+  // ── Estructura del contenido ──────────────────────────────────────────────
+  if (r?.estructuraContenido?.overallEvaluation) {
+    sectionHeader('Estructura del contenido', [6, 182, 212]);
+    bodyText(`Apertura detectada: ${r.estructuraContenido.hasOpening ? 'Sí' : 'No'}`);
+    bodyText(`Cierre detectado: ${r.estructuraContenido.hasClosing ? 'Sí' : 'No'}`);
+    bodyText(r.estructuraContenido.overallEvaluation);
+  }
+
+  // ── Plan siguiente sesión ─────────────────────────────────────────────────
+  if (r?.planSiguienteSesion) {
+    sectionHeader('Plan para la siguiente sesión', [139, 92, 246]);
+    bodyText(r.planSiguienteSesion);
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(31, 41, 55);
+    doc.line(margin, 288, W - margin, 288);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(75, 85, 99);
+    doc.text('Entrenamiento Comunicativo — comunicacion.cibermedida.es', margin, 293);
+    doc.text(`Página ${i} / ${totalPages}`, W - margin, 293, { align: 'right' });
+  }
+
+  doc.save(`informe-sesion-${sessionId}.pdf`);
+}
+
 export default function Report() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -42,11 +196,20 @@ export default function Report() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [downloading, setDownloading] = useState(false);
+
   useEffect(() => {
     api.get(`/api/sessions/${sessionId}/report`)
       .then(r => { setData(r.data); setLoading(false); })
       .catch(e => { setError('No se pudo cargar el informe.'); setLoading(false); });
   }, [sessionId]);
+
+  const handleDownloadPDF = () => {
+    setDownloading(true);
+    try { generatePDF(data, sessionId); }
+    catch (e) { console.error('PDF error', e); }
+    finally { setTimeout(() => setDownloading(false), 1200); }
+  };
 
   if (loading) {
     return (
@@ -91,16 +254,25 @@ export default function Report() {
         <ChevronLeft className="w-4 h-4" /> Volver al inicio
       </button>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="font-heading font-semibold text-3xl tracking-tighter text-[#F1F5F9]">Informe de sesión</h1>
           <p className="text-[#94A3B8] text-sm mt-1">Análisis completo generado por IA</p>
         </div>
-        <button onClick={() => navigate('/train')}
-          data-testid="new-session-btn"
-          className="bg-[#06B6D4] hover:bg-[#06B6D4]/90 text-[#0A0E1A] font-semibold px-5 py-2.5 rounded-lg transition-all text-sm flex items-center gap-2">
-          <Mic className="w-4 h-4" /> Nueva sesión
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleDownloadPDF} disabled={downloading} data-testid="download-pdf-btn"
+            className="flex items-center gap-2 bg-[#1F2937] hover:bg-[#374151] border border-white/10 text-[#F1F5F9] text-sm px-4 py-2.5 rounded-xl transition-all disabled:opacity-60">
+            {downloading
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
+              : <><Download className="w-4 h-4" /> Descargar PDF</>
+            }
+          </button>
+          <button onClick={() => navigate('/train')}
+            data-testid="new-session-btn"
+            className="bg-[#06B6D4] hover:bg-[#06B6D4]/90 text-[#0A0E1A] font-semibold px-5 py-2.5 rounded-lg transition-all text-sm flex items-center gap-2">
+            <Mic className="w-4 h-4" /> Nueva sesión
+          </button>
+        </div>
       </div>
 
       {/* 1. Executive summary - full width */}

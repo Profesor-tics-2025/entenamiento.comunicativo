@@ -869,6 +869,115 @@ FILLERS_SEED = [
     "es que", "o sea que", "mmm", "eh", "ahh", "eeeh", "umm", "osea",
 ]
 
+
+# ── Admin helpers ─────────────────────────────────────────────────────────────────
+async def require_admin(current_user=Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acceso restringido a administradores")
+    return current_user
+
+# ── Admin routes ─────────────────────────────────────────────────────────────────
+@api_router.get("/admin/stats")
+async def admin_stats(admin=Depends(require_admin)):
+    users_count = await db.users.count_documents({})
+    sessions_count = await db.sessions.count_documents({})
+    exercises_count = await db.exercise_prompts.count_documents({})
+    return {"users": users_count, "sessions": sessions_count, "exercises": exercises_count}
+
+@api_router.get("/admin/users")
+async def admin_list_users(admin=Depends(require_admin)):
+    users = await db.users.find({}).to_list(500)
+    result = []
+    for u in users:
+        uid = str(u["_id"])
+        session_count = await db.sessions.count_documents({"user_id": uid})
+        last_session = await db.sessions.find_one(
+            {"user_id": uid}, sort=[("started_at", -1)]
+        )
+        result.append({
+            "id": uid,
+            "email": u.get("email", ""),
+            "name": u.get("name", ""),
+            "role": u.get("role", "user"),
+            "current_level": u.get("current_level", 1),
+            "total_xp": u.get("total_xp", 0),
+            "job_profile": u.get("job_profile", "general"),
+            "created_at": u.get("created_at"),
+            "sessions_count": session_count,
+            "last_session_at": last_session.get("started_at") if last_session else None,
+        })
+    return result
+
+@api_router.get("/admin/users/{user_id}/sessions")
+async def admin_user_sessions(user_id: str, admin=Depends(require_admin)):
+    sessions = await db.sessions.find({"user_id": user_id}, sort=[("started_at", -1)]).to_list(100)
+    result = []
+    for s in sessions:
+        result.append({
+            "id": str(s["_id"]),
+            "exercise_id": s.get("exercise_id"),
+            "level": s.get("level"),
+            "passed": s.get("passed", False),
+            "xp_earned": s.get("xp_earned", 0),
+            "duration_seconds": s.get("duration_seconds"),
+            "started_at": s.get("started_at"),
+            "score": s.get("score"),
+        })
+    return result
+
+@api_router.get("/admin/exercises")
+async def admin_list_exercises(admin=Depends(require_admin)):
+    exercises = await db.exercise_prompts.find({}).to_list(500)
+    for ex in exercises:
+        ex["id"] = str(ex["_id"])
+        del ex["_id"]
+    return exercises
+
+class ExerciseBody(BaseModel):
+    title_es: str
+    description_es: str
+    category: str
+    difficulty: str
+    level_required: int
+    duration_target_seconds: int
+    prompt_text_es: Optional[str] = None
+
+@api_router.post("/admin/exercises")
+async def admin_create_exercise(body: ExerciseBody, admin=Depends(require_admin)):
+    doc = body.dict()
+    doc["active"] = True
+    result = await db.exercise_prompts.insert_one(doc)
+    doc["id"] = str(result.inserted_id)
+    del doc["_id"]
+    return doc
+
+@api_router.put("/admin/exercises/{exercise_id}")
+async def admin_update_exercise(exercise_id: str, body: ExerciseBody, admin=Depends(require_admin)):
+    try:
+        oid = ObjectId(exercise_id)
+    except Exception:
+        raise HTTPException(400, "ID inválido")
+    update = {"$set": body.dict()}
+    result = await db.exercise_prompts.update_one({"_id": oid}, update)
+    if result.matched_count == 0:
+        raise HTTPException(404, "Ejercicio no encontrado")
+    ex = await db.exercise_prompts.find_one({"_id": oid})
+    ex["id"] = str(ex["_id"])
+    del ex["_id"]
+    return ex
+
+@api_router.delete("/admin/exercises/{exercise_id}")
+async def admin_delete_exercise(exercise_id: str, admin=Depends(require_admin)):
+    try:
+        oid = ObjectId(exercise_id)
+    except Exception:
+        raise HTTPException(400, "ID inválido")
+    result = await db.exercise_prompts.delete_one({"_id": oid})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Ejercicio no encontrado")
+    return {"ok": True}
+
+
 async def seed_database():
     ex_count = await db.exercise_prompts.count_documents({})
     if ex_count == 0:

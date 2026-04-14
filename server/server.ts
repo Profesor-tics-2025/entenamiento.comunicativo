@@ -8,6 +8,7 @@ import sessionsRouter from './routes/sessions.js';
 import exercisesRouter from './routes/exercises.js';
 import progressRouter from './routes/progress.js';
 import usersRouter from './routes/users.js';
+import adminRouter from './routes/admin.js';
 import pool from './db.js';
 import { seedAdmin } from './services/seedAdmin.js';
 
@@ -66,6 +67,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/exercises', exercisesRouter);
 app.use('/api/progress', progressRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/admin', adminRouter);
 
 // ── Health ─────────────────────────────────────────────────────────────────────
 app.get('/api/health', async (_req, res) => {

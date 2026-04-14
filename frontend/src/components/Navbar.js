@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Dumbbell, TrendingUp, BookOpen,
-  User, LogOut, Menu, X, Radio
+  User, LogOut, Menu, X, Radio, Shield
 } from 'lucide-react';
 
 const navItems = [
@@ -58,6 +58,17 @@ export default function Navbar() {
                 <span>{label}</span>
               </Link>
             ))}
+            {user.role === 'admin' && (
+              <Link to="/admin" data-testid="nav-admin"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                  location.pathname === '/admin'
+                    ? 'bg-[#F59E0B]/10 text-[#F59E0B]'
+                    : 'text-[#94A3B8] hover:text-[#F59E0B] hover:bg-white/5'
+                }`}>
+                <Shield className="w-4 h-4" />
+                <span>Admin</span>
+              </Link>
+            )}
           </div>
 
           {/* User + Logout */}
@@ -103,6 +114,14 @@ export default function Navbar() {
               {label}
             </Link>
           ))}
+          {user.role === 'admin' && (
+            <Link to="/admin" onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                location.pathname === '/admin' ? 'bg-[#F59E0B]/10 text-[#F59E0B]' : 'text-[#94A3B8] hover:bg-white/5 hover:text-[#F59E0B]'
+              }`}>
+              <Shield className="w-4 h-4" /> Admin
+            </Link>
+          )}
           <div className="border-t border-white/5 pt-2 mt-2 flex items-center justify-between">
             <span className="text-[#94A3B8] text-sm">{user.name}</span>
             <button onClick={handleLogout} className="text-[#EF4444] text-sm flex items-center gap-1">
