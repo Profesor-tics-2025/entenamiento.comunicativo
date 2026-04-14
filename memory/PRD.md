@@ -54,12 +54,11 @@ Plataforma de entrenamiento en comunicación profesional con análisis por IA. P
 
 ---
 
-## Fixes verificados y cerrados (iteración 6 — 2026-02)
+## Implementado (iteración 7 — 2026-02) — P2 completo
 
-- [x] **WPM/muletillas/pausas en tiempo real**: Web Speech API (`SpeechRecognition`, `es-ES`, `continuous`) reemplaza `Math.random()`. Detecta fillers ES en tiempo real. Pausa = silencio > 3s entre resultados. `Train.js` + `Train.tsx`. ✅
-- [x] **Duración mínima 3 min**: Botón "Terminar" muestra cuenta regresiva. Si < 180s → diálogo de confirmación con opción "Seguir grabando" o "Terminar igual". ✅
-- [x] **beforeunload cleanup**: `window.addEventListener('beforeunload', cleanup)` en ambos frontends → cámara y micrófono se liberan al cerrar pestaña. ✅
-- [x] **Indicadores de fuente en tiempo real**: Punto morado "Voz en tiempo real" aparece en topbar cuando Speech API está activa. Leyendas en panel de métricas. ✅
+- [x] **Panel de administración `/admin`**: 3 pestañas (Resumen, Usuarios, Ejercicios). Stats cards, tabla de usuarios expandible con sesiones, CRUD de ejercicios (crear, editar, eliminar). Backend: `/api/admin/stats`, `/api/admin/users`, `/api/admin/exercises`. Protegido por `require_admin` (403 para no-admin). ✅ 100% backend tests
+- [x] **Exportar informes a PDF**: Botón "Descargar PDF" en `/report/:id` usando jsPDF. PDF estructurado con header, puntuación, métricas, análisis verbal, ritmo, presencia visual, plan siguiente sesión. ✅ Botón presente, fix de syntax error aplicado.
+- [x] **Enlace Admin en Navbar**: Visible solo para `user.role === 'admin'` en desktop y móvil. ✅
 
 ## Fixes verificados y cerrados (iteración 4 — 2026-02)
 
