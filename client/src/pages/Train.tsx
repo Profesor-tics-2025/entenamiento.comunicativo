@@ -235,6 +235,7 @@ export default function Train() {
   const [elapsed, setElapsed] = useState(0);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraPermState, setCameraPermState] = useState<'unknown'|'prompt'|'denied'|'granted'>('unknown');
   const [alertType, setAlertType] = useState<AlertType>(null);
   const [mpStatus, setMpStatus] = useState<MpStatus>('idle');
   const [liveMetrics, setLiveMetrics] = useState({ wpm: 0, gaze: 0, fillers: 0, pauses: 0 });
@@ -293,6 +294,7 @@ export default function Train() {
 
   // ── Camera init ──────────────────────────────────────────────────────────
   const initCamera = async () => {
+    setCameraError(null);
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError(
         window.location.protocol !== 'https:' && window.location.hostname !== 'localhost'
@@ -301,12 +303,23 @@ export default function Train() {
       );
       return;
     }
+
+    // Detect permission state upfront for better UX messaging
+    if (navigator.permissions) {
+      try {
+        const perm = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        setCameraPermState(perm.state as 'prompt'|'denied'|'granted');
+        perm.onchange = () => setCameraPermState(perm.state as 'prompt'|'denied'|'granted');
+      } catch { /* permissions API not available */ }
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 1280, height: 720, facingMode: 'user' },
         audio: true,
       });
       streamRef.current = stream;
+      setCameraPermState('granted');
 
       // setCameraReady BEFORE play() so a play() rejection
       // never prevents the button from becoming active.
@@ -334,12 +347,21 @@ export default function Train() {
 
     } catch (err: unknown) {
       const errObj = err as { name?: string; message?: string };
-      const msgs: Record<string, string> = {
-        NotAllowedError: 'Permiso de cámara denegado. Permite el acceso en la configuración del navegador.',
-        NotFoundError: 'No se encontró ninguna cámara. Comprueba que tienes una cámara conectada.',
-      };
-      setCameraError(msgs[errObj.name ?? ''] ?? `Error al acceder a la cámara: ${errObj.message}`);
+      if (errObj.name === 'NotAllowedError') {
+        setCameraPermState('denied');
+        setCameraError('denied');
+      } else if (errObj.name === 'NotFoundError') {
+        setCameraError('notfound');
+      } else {
+        setCameraError(errObj.message || 'Error desconocido al acceder a la cámara.');
+      }
     }
+  };
+
+  const retryCamera = () => {
+    setCameraError(null);
+    setCameraReady(false);
+    initCamera();
   };
 
   // Re-attach srcObject if video element remounts after cameraReady
@@ -754,9 +776,53 @@ export default function Train() {
         <div className="flex-1 relative bg-black" data-testid="camera-panel">
           {cameraError ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
-              <AlertCircle className="w-12 h-12 text-[#EF4444] mb-4" />
-              <h3 className="font-heading font-semibold text-[#F1F5F9] mb-2">Error de cámara</h3>
-              <p className="text-[#94A3B8] text-sm max-w-sm" data-testid="camera-error">{cameraError}</p>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
+                cameraError === 'denied' ? 'bg-[#EF4444]/10' : 'bg-[#F59E0B]/10'
+              }`}>
+                <AlertCircle className={`w-8 h-8 ${cameraError === 'denied' ? 'text-[#EF4444]' : 'text-[#F59E0B]'}`} />
+              </div>
+              <h3 className="font-heading font-semibold text-[#F1F5F9] mb-2">
+                {cameraError === 'denied' ? 'Permiso de cámara bloqueado'
+                  : cameraError === 'notfound' ? 'No se detectó ninguna cámara'
+                  : 'Error al acceder a la cámara'}
+              </h3>
+              <p className="text-[#94A3B8] text-sm max-w-xs mb-4" data-testid="camera-error">
+                {cameraError === 'denied'
+                  ? 'El navegador bloqueó el acceso a la cámara. Sigue los pasos de abajo para activarla.'
+                  : cameraError === 'notfound'
+                  ? 'No se encontró ninguna cámara conectada al dispositivo.'
+                  : cameraError}
+              </p>
+
+              {cameraError === 'denied' && (
+                <div className="bg-[#1F2937] border border-white/10 rounded-xl p-4 text-left max-w-xs mb-5 space-y-2.5">
+                  <p className="text-[#F1F5F9] text-xs font-semibold mb-1">Cómo permitir el acceso:</p>
+                  {[
+                    'Haz clic en el icono 🔒 o ⓘ a la izquierda de la URL',
+                    'Busca "Cámara" y cámbialo a "Permitir"',
+                    'Pulsa "Reintentar" abajo (sin recargar)',
+                  ].map((step, i) => (
+                    <div key={i} className="flex gap-2.5 items-start text-xs text-[#94A3B8]">
+                      <span className="w-5 h-5 rounded-full bg-[#06B6D4]/20 text-[#06B6D4] flex items-center justify-center flex-shrink-0 font-semibold text-[10px] mt-0.5">{i + 1}</span>
+                      <p>{step}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 w-full max-w-xs">
+                <button onClick={retryCamera} data-testid="retry-camera-btn"
+                  className="bg-[#06B6D4] hover:bg-[#06B6D4]/90 text-[#0A0E1A] font-semibold py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115-3.87M20 15a9 9 0 01-15 3.87" />
+                  </svg>
+                  Reintentar
+                </button>
+                <button onClick={() => window.location.reload()} data-testid="reload-page-btn"
+                  className="bg-white/5 hover:bg-white/10 text-[#94A3B8] py-2.5 rounded-xl text-sm transition-all">
+                  Recargar página
+                </button>
+              </div>
             </div>
           ) : (
             <>
